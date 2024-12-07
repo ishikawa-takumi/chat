@@ -1,0 +1,8 @@
+
+torch
+transformers
+huggingface_hub
+langchain
+langchain_community
+faiss-cpu
+gradio
