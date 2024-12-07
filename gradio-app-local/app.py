@@ -34,7 +34,7 @@ def main():
         msg.submit(response, [msg, chatbot], [msg, chatbot])
         clear.click(lambda: None, None, chatbot, queue=False)
 
-    demo.launch()
+    demo.launch(share=True)
 
 if __name__ == "__main__":
     main()

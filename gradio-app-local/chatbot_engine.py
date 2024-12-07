@@ -23,10 +23,10 @@ langchain.verbose = True
 # 1. ベクトルストアの準備
 def setup_vectorstore() -> FAISS:
     # フォルダーから文書データをロード
-    loader = DirectoryLoader("data", glob="**/*.txt")
+    loader = DirectoryLoader("../../data", glob="**/*.txt")
     documents = loader.load()
 
-    model_kargs = {"torch_dtype": torch.float16, "device": "cuda"}
+    model_kwargs = {"torch_dtype": torch.float16, "device": "cuda"}
     embeddings = HuggingFaceBgeEmbeddings(model_name="intfloat/multilingual-e5-large")  # Remove device argument
     vectorstore = FAISS.from_documents(documents, embeddings)
 
@@ -86,14 +86,14 @@ def setup_model_and_tokenizer():
     if not os.path.exists(local_model_path):
         os.makedirs(local_model_path)
     tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-jpn-it", cache_dir=local_model_path)
-    offload_folder = os.getcwd()
+    offload_folder = "/home/ubuntu/file/chat/gradio-app-local/local_model/models--google--gemma-2-2b-jpn-it/snapshots/6b046bbc091084a1ec89fe03e58871fde10868eb"
     print(f"offload_folder: {offload_folder}")
     model = AutoModelForCausalLM.from_pretrained(
         "google/gemma-2-2b-jpn-it",
         torch_dtype=torch.float16,
-        offload_folder=offload_folder,
-        offload_state_dict=True,
-        cache_dir=local_model_path,
+        # offload_folder=offload_folder,
+        # offload_state_dict=True,
+        # cache_dir=local_model_path,
     )
     # model.to("cuda")  # Move the model to CUDA
     return model, tokenizer
@@ -109,8 +109,8 @@ def setup_pipeline(model, tokenizer):
         top_k=50,
         top_p=0.8,
         repetition_penalty=1.0,
-        # device_map="auto"
-        device="cpu"
+        device_map="auto"
+        # device="cuda"
     )
     return HuggingFacePipeline(pipeline=pipe)
 
