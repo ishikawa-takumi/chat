@@ -3,7 +3,6 @@ import sys
 import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-from langchain.llms import HuggingFacePipeline
 from langchain.embeddings import HuggingFaceEmbeddings
 from llama_index.embeddings.langchain import LangchainEmbedding
 from llama_index.core.text_splitter import SentenceSplitter
@@ -13,7 +12,8 @@ from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core import get_response_synthesizer
 from llama_index.core import Prompt
 from llama_index.core.postprocessor import SimilarityPostprocessor
-
+from typing import Any, List
+from huggingface_hub import login
 
 from typing import Any, List
 
@@ -137,7 +137,7 @@ custom_prompt = Prompt(template="""
 コンテキスト情報や質問内容を繰り返さないでください。
 """)
 
-def main(data_dir="./data"):
+def main(data_dir="./output_markdown"):
     model, tokenizer = setup_model_and_tokenizer()
     llm = setup_pipeline(model, tokenizer)
     embed_model = setup_embeddings()
