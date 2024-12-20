@@ -10,3 +10,4 @@ gradio
 unstructured
 tf-keras
 bitsandbytes
+accelerate
