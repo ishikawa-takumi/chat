@@ -9,3 +9,4 @@ faiss-gpu
 gradio
 unstructured
 tf-keras
+bitsandbytes
