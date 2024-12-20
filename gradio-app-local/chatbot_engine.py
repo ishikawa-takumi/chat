@@ -2,8 +2,9 @@ import os
 import sys
 import logging
 from huggingface_hub import login
+from langchain_huggingface import ChatHuggingFace
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, Pipeline
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, Pipeline, BitsAndBytesConfig
 from langchain_huggingface.llms import HuggingFacePipeline
 from langchain.memory import ChatMessageHistory
 from langchain.schema import HumanMessage
@@ -24,13 +25,15 @@ langchain.verbose = True
 # 1. ベクトルストアの準備
 def setup_vectorstore() -> FAISS:
     # ドキュメント読み込み
-    loader = DirectoryLoader("../app/data", glob="**/*.txt")
+    # loader = DirectoryLoader("../app/data", glob="**/*.txt")
+    loader = DirectoryLoader("../app/output_markdown", glob="**/*.md")
     documents = loader.load()
 
     # テキストをチャンクに分割
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=256,
+        chunk_size=512,
         chunk_overlap=50,
+        separators="\n\n",
     )
     docs = text_splitter.split_documents(documents)
 
@@ -45,19 +48,29 @@ def setup_vectorstore() -> FAISS:
 def chat_with_rag(pipeline: Pipeline, message: str, history: ChatMessageHistory, vectorstore: FAISS) -> str:
 
     # RAG用のRetrievalQAチェーンを構築
-    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 10})
+    # prompt_template = """
+    # 以下の文書を参考に、以下の質問に対して回答してください。
+    # 回答を出す際は、質問文を繰り返さず、答えのみを簡潔に出力してください。
+    # 補足説明や余計な前置きは不要です。
+    
+    # 文書:
+    # {context}
+    
+    # 質問:
+    # {question}
+    
+    # 上記を参考に、以下に最終的な回答のみを出力してください。
     prompt_template = """
-    以下の文書を参考に、以下の質問に対して回答してください。
-    回答を出す際は、質問文を繰り返さず、答えのみを簡潔に出力してください。
-    補足説明や余計な前置きは不要です。
-    
-    文書:
+    以下は、タスクを説明する指示です。要求を適切に満たす応答を書きなさい。
+
+    コンテキスト:
     {context}
-    
-    質問:
+
+    指示:
     {question}
     
-    上記を参考に、以下に最終的な回答のみを出力してください。
+    応答:
     """
 
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
@@ -74,10 +87,16 @@ def chat_with_rag(pipeline: Pipeline, message: str, history: ChatMessageHistory,
     messages.append(HumanMessage(content=message))
 
     # 検索と応答の生成
-    result = qa_chain({"query": message})["result"]
+    result = qa_chain({"query": message})
+    print(result)
 
-    # 結果を出力
-    return result
+    # get the AI response content
+    ai_response_content = result["result"]
+
+    # get content after "応答:"
+    ai_response_content = ai_response_content.split("応答:")[-1].strip()
+
+    return ai_response_content
 
 
 # Replace 'your_access_token' with your Hugging Face token
@@ -98,15 +117,32 @@ def setup_model_and_tokenizer():
     local_model_path = "./local_model"
     if not os.path.exists(local_model_path):
         os.makedirs(local_model_path)
-    tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-jpn-it", cache_dir=local_model_path)
+    # tokenizer = AutoTokenizer.from_pretrained("HODACHI/EZO-Common-9B-gemma-2-it", cache_dir=local_model_path)
+    # tokenizer = AutoTokenizer.from_pretrained("google/gemma-2-2b-jpn-it", cache_dir=local_model_path)
+    tokenizer = AutoTokenizer.from_pretrained("llm-jp/llm-jp-3-3.7b-instruct", cache_dir=local_model_path)
+    # tokenizer = AutoTokenizer.from_pretrained("llm-jp/llm-jp-3-13b-instruct", cache_dir=local_model_path)
+    # tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4", cache_dir=local_model_path)
     offload_folder = os.getcwd()
     print(f"offload_folder: {offload_folder}")
+        # BitsAndBytesConfigを使用してモデルを量子化
+    quantization_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_use_double_quant=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16
+    )
     model = AutoModelForCausalLM.from_pretrained(
-        "google/gemma-2-2b-jpn-it",
-        torch_dtype=torch.float16,
+        # "HODACHI/EZO-Common-9B-gemma-2-it",
+        # "google/gemma-2-2b-jpn-it",
+        "llm-jp/llm-jp-3-3.7b-instruct",
+        # "llm-jp/llm-jp-3-13b-instruct",
+        # "Qwen/Qwen2.5-14B-Instruct-GPTQ-Int4",
+        # "PrunaAI/HODACHI-EZO-Common-9B-gemma-2-it-bnb-4bit-smashed",
+        torch_dtype="auto",    
         offload_folder=offload_folder,
         offload_state_dict=True,
         cache_dir=local_model_path,
+        # quantization_config=quantization_config
     )
     model.to("cuda")  # Move the model to CUDA
     return model, tokenizer
@@ -116,14 +152,16 @@ def setup_pipeline(model, tokenizer):
         "text-generation",
         model=model,
         tokenizer=tokenizer,
-        max_new_tokens=256,  # トークン数を調整
-        top_k=50,
-        top_p=0.8,
-        repetition_penalty=1.0,
+        max_new_tokens=1024,  # トークン数を調整
+        do_sample=True,      # ランダム性を有効化
+        top_p=0.95,
+        temperature=0.1,
+        repetition_penalty=1.05,
         device_map="auto"
-        # device="cuda"
     )
-    return HuggingFacePipeline(pipeline=pipe)
+    hugginfacePipe = HuggingFacePipeline(pipeline=pipe)
+    # return ChatHuggingFace(llm=hugginfacePipe)
+    return  hugginfacePipe
 
 def chat(pipeline: HuggingFacePipeline, message: str, chat_history: ChatMessageHistory) -> dict:
     messages = chat_history.messages
