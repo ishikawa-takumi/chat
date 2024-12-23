@@ -24,16 +24,20 @@ langchain.verbose = True
 
 # 1. ベクトルストアの準備
 def setup_vectorstore() -> FAISS:
+    
     # ドキュメント読み込み
     # loader = DirectoryLoader("../app/data", glob="**/*.txt")
-    loader = DirectoryLoader("../app/output_markdown", glob="**/*.md")
+    # loader = DirectoryLoader("../app/output_markdown", glob="**/*.md")
+    loader = DirectoryLoader("../app/data", glob="**/*.txt")
     documents = loader.load()
 
     # テキストをチャンクに分割
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=512,
-        chunk_overlap=50,
-        separators="\n\n",
+        chunk_size=16,
+        chunk_overlap=8,
+        # separators="\n\n",
+
+        separators="***************************"
     )
     docs = text_splitter.split_documents(documents)
 
@@ -164,8 +168,9 @@ def setup_pipeline(model, tokenizer):
     return  hugginfacePipe
 
 def chat(pipeline: HuggingFacePipeline, message: str, chat_history: ChatMessageHistory) -> dict:
-    messages = chat_history.messages
-    messages.append(HumanMessage(content=message))
+    # messages = chat_history.messages
+    # messages.append(HumanMessage(content=message))
+    messages = [HumanMessage(content=message)]
 
     ai_response = pipeline.invoke(messages)
     ai_response_content = ai_response  # Extract only the AI response content
