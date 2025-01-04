@@ -1,13 +1,10 @@
-import asyncio  # Add asyncio import
 import gradio as gr
-from chatbot_engine import chat, setup_model_and_tokenizer, setup_pipeline, setup_vectorstore, chat_with_rag
-# from chatbot_engine import setup_index, chat_with_rag
+from chatbot_engine import setup_model_and_tokenizer, setup_pipeline, setup_vectorstore, chat_with_rag
 from langchain.memory import ChatMessageHistory
-from langchain.schema import HumanMessage, AIMessage, ChatMessage
 
 model, tokenizer = setup_model_and_tokenizer()
 llm = setup_pipeline(model, tokenizer)
-vectorstore = setup_vectorstore()
+vectorstore = setup_vectorstore("data")
 # index = setup_index()
 
 def response(message, chat_history):
