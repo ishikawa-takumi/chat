@@ -1,3 +1,4 @@
+import os
 import gradio as gr
 from chatbot_engine import setup_model_and_tokenizer, setup_pipeline, setup_vectorstore, chat_with_rag
 from langchain.memory import ChatMessageHistory

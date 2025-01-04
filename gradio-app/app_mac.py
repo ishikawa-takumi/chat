@@ -1,15 +1,15 @@
-import os
+import os  # Add asyncio import
 import gradio as gr
-from chatbot_engine import setup_model_and_tokenizer, setup_pipeline, setup_vectorstore, chat_with_rag
+from chatbot_engine import setup_vectorstore, chat_with_rag
+# from chatbot_engine import setup_index, chat_with_rag
 from langchain.memory import ChatMessageHistory
+from langchain.schema import HumanMessage, AIMessage, ChatMessage
 
 # Set environment variable to disable upper limit for memory allocations
 os.environ["PYTORCH_MPS_HIGH_WATERMARK_RATIO"] = "0.0"
 
-model, tokenizer = setup_model_and_tokenizer()
-llm = setup_pipeline(model, tokenizer)
+
 vectorstore = setup_vectorstore("data")
-# index = setup_index()
 
 def response(message, chat_history):
     history = ChatMessageHistory()
@@ -21,7 +21,7 @@ def response(message, chat_history):
             history.add_ai_message(msg["content"])
 
     # bot_message = chat(llm, message, history)
-    bot_message = chat_with_rag(llm, message, history, vectorstore)
+    bot_message = chat_with_rag(message, history, vectorstore)
     chat_history.append({"role": "user", "content": message})
     chat_history.append({"role": "assistant", "content": bot_message})
 
